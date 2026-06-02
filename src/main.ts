@@ -51,13 +51,13 @@ async function bootstrap() {
     },
   });
 
-  await app.listen(process.env.DB_PORT ?? 3000);
+  await app.listen(process.env.PORT ?? 3000);
 
   console.log(
-    `\n🚀 VenueFlow API running at http://localhost:${process.env.DB_PORT ?? 3000}/v1`,
+    `\n🚀 VenueFlow API running at http://localhost:${process.env.PORT ?? 3000}/v1`,
   );
   console.log(
-    `📄 Swagger docs at  http://localhost:${process.env.DB_PORT ?? 3000}/docs\n`,
+    `📄 Swagger docs at  http://localhost:${process.env.PORT ?? 3000}/docs\n`,
   );
 }
 

@@ -15,9 +15,8 @@ export class BookingExpiryService {
     private readonly dataSource: DataSource,
   ) {}
 
-  @Cron(CronExpression.EVERY_MINUTE)
+  @Cron(CronExpression.EVERY_5_MINUTES)
   async expirePendingBookings() {
-    console.log('Running...');
     const expiredBookings = await this.bookingRepository.find({
       where: {
         status: BookingStatus.PENDING,

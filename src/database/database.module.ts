@@ -18,6 +18,10 @@ import { DataSource } from 'typeorm';
         entities: [__dirname + '/../**/*.entity.{ts,js}'],
         synchronize: false,
         logging: true,
+        ssl:
+          configService.get('NODE_ENV') === 'production'
+            ? { rejectUnauthorized: false }
+            : false,
       }),
       dataSourceFactory: async (options) => {
         const dataSource = new DataSource(options!);

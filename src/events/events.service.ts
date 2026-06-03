@@ -109,10 +109,14 @@ export class EventsService {
   async listEvents(query: ListEventsQueryDto) {
     const cacheKey = CACHE_KEYS.EVENT_LIST(query);
     const cachedData = await this.cacheManager.get(cacheKey);
+    console.log('CACHE VALUE:', cachedData);
+
     if (cachedData) {
       console.log('CACHE HIT', cacheKey);
       return cachedData;
     }
+
+    console.log('CACHE MISS', cacheKey);
 
     const {
       page = 1,

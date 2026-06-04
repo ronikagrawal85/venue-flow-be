@@ -1,8 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsIn, IsOptional } from 'class-validator';
-import {
-  PaginationQueryDto
-} from '../../common/dto/pagination-query.dto';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { BookingStatus } from '../entities/enums/booking-status.enum';
 
 export class ListMyBookingsQueryDto extends PaginationQueryDto {
@@ -21,5 +19,5 @@ export class ListMyBookingsQueryDto extends PaginationQueryDto {
   })
   @IsOptional()
   @IsIn(['createdAt'])
-  sortBy?: 'createdAt' = 'createdAt';
+  sortBy? = 'createdAt' as const;
 }

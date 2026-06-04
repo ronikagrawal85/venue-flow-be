@@ -1,11 +1,4 @@
-import {
-  Check,
-  Column,
-  Entity,
-  Index,
-  JoinColumn,
-  ManyToOne,
-} from 'typeorm';
+import { Check, Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
 import { BaseEntity } from '../../database/entities/base.entity';
 import { EventSeat } from '../../events/entities/event-seat.entity';
 import { Booking } from './booking.entity';

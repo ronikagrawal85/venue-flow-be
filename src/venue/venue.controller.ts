@@ -9,7 +9,13 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -26,13 +32,18 @@ import { VenueService } from './venue.service';
 @ApiTags('Venues')
 @Controller('venues')
 export class VenueController {
-  constructor(private readonly venueService: VenueService) { }
+  constructor(private readonly venueService: VenueService) {}
 
   // ── Public ──────────────────────────────────────────────────────────────────
 
   @Get()
-  @ApiOperation({ summary: 'List all venues with pagination, search and sorting (public)' })
-  @ApiResponse({ status: 200, description: 'Paginated list of venues with sections' })
+  @ApiOperation({
+    summary: 'List all venues with pagination, search and sorting (public)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated list of venues with sections',
+  })
   async findAllVenues(@Query() query: ListVenuesQueryDto) {
     return await this.venueService.findAllVenues(query);
   }
@@ -72,7 +83,9 @@ export class VenueController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Bulk-generate seats for a section  [ORGANIZER, ADMIN]' })
+  @ApiOperation({
+    summary: 'Bulk-generate seats for a section  [ORGANIZER, ADMIN]',
+  })
   @ApiResponse({ status: 201, description: 'Seats created' })
   async bulkCreateSeats(@Body() bulkCreateSeatsDto: BulkCreateSeatsDto) {
     return await this.venueService.bulkCreateSeats(bulkCreateSeatsDto);
@@ -133,7 +146,9 @@ export class VenueController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Bulk-update seat accessibility  [ORGANIZER, ADMIN]' })
+  @ApiOperation({
+    summary: 'Bulk-update seat accessibility  [ORGANIZER, ADMIN]',
+  })
   @ApiResponse({ status: 200, description: 'Seats updated' })
   async bulkUpdateSeats(@Body() bulkUpdateSeatsDto: BulkUpdateSeatsDto) {
     return await this.venueService.bulkUpdateSeats(bulkUpdateSeatsDto);

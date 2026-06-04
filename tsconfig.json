@@ -17,6 +17,7 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
-    "paths": { "src/*": ["src/*"] }
+    "paths": { "src/*": ["src/*"] },
+    "esModuleInterop": true
   }
 }

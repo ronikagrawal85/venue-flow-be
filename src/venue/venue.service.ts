@@ -41,7 +41,7 @@ export class VenueService {
 
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
-  ) { }
+  ) {}
 
   async createVenue(dto: CreateVenueDto) {
     const venue = this.venueRepository.create(dto);

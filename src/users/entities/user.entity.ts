@@ -1,4 +1,4 @@
-import { Column, Entity } from 'typeorm';
+import { Column, Entity, Index } from 'typeorm';
 import { BaseEntity } from '../../database/entities/base.entity';
 
 export enum UserRole {
@@ -7,37 +7,45 @@ export enum UserRole {
   ORGANIZER = 'ORGANIZER',
 }
 
-@Entity({
-  name: 'users',
-})
+export enum AuthProvider {
+  LOCAL = 'LOCAL',
+  GOOGLE = 'GOOGLE',
+}
+
+@Entity({ name: 'users' })
 export class User extends BaseEntity {
-  @Column({
-    unique: true,
-  })
+  @Column({ unique: true })
   email: string;
 
   @Column({
     name: 'password_hash',
     select: false,
+    nullable: true,
+    type: 'text',
   })
-  passwordHash: string;
+  passwordHash: string | null;
 
-  @Column({
-    name: 'is_email_verified',
-    default: false,
-  })
+  @Column({ nullable: true })
+  name?: string | null;
+
+  @Column({ name: 'is_email_verified', default: false })
   isEmailVerified: boolean;
 
-  @Column({
-    type: 'enum',
-    enum: UserRole,
-    default: UserRole.USER,
-  })
+  @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })
   role: UserRole;
 
-  @Column({
-    name: 'last_login_at',
-    nullable: true,
-  })
+  @Column({ name: 'last_login_at', nullable: true })
   lastLoginAt?: Date;
+
+  @Column({
+    name: 'auth_provider',
+    type: 'enum',
+    enum: AuthProvider,
+    default: AuthProvider.LOCAL,
+  })
+  authProvider: AuthProvider;
+
+  @Index({ unique: true, sparse: true })
+  @Column({ name: 'google_id', nullable: true, unique: true })
+  googleId?: string;
 }

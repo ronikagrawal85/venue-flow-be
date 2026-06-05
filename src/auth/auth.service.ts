@@ -11,7 +11,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { Request } from 'express';
 import { UsersService } from '../users/users.service';
-import { User } from '../users/entities/user.entity';
+import { AuthProvider, User, UserRole } from '../users/entities/user.entity';
 import { Repository } from 'typeorm';
 import { RegisterDto } from './dto/register.dto';
 import { RefreshToken } from './entities/refresh-token.entity';
@@ -45,7 +45,16 @@ export class AuthService {
       throw new ConflictException('Email and password are required');
     }
     const user = await this.usersService.findByEmail(email);
-    if (user && (await bcrypt.compare(pass, user.passwordHash))) {
+    if (!user) return null;
+
+    // Google-only accounts have no password — tell the user explicitly
+    if (!user.passwordHash || user.authProvider === AuthProvider.GOOGLE) {
+      throw new ConflictException(
+        'This account uses Google login. Please sign in with Google.',
+      );
+    }
+
+    if (await bcrypt.compare(pass, user.passwordHash)) {
       return user;
     }
     return null;
@@ -57,7 +66,7 @@ export class AuthService {
   ): Promise<{
     accessToken: string;
     rawRefreshToken: string;
-    user: { id: string; email: string; role: string };
+    user: { id: string; email: string; role: UserRole; name?: string };
   }> {
     await this.usersService.updateLastLogin(user.id);
 
@@ -77,7 +86,12 @@ export class AuthService {
     return {
       accessToken,
       rawRefreshToken: rawToken,
-      user: { id: user.id, email: user.email, role: user.role },
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        name: user.name ?? '',
+      },
     };
   }
 

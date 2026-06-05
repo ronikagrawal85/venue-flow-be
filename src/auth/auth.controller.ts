@@ -18,9 +18,11 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Request, Response } from 'express';
+import { User } from '../users/entities/user.entity';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RequestWithUser } from './interfaces/request-with-user.interface';
 
@@ -29,9 +31,9 @@ const REFRESH_COOKIE = 'refreshToken';
 const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict' as const,
+  sameSite: 'lax' as const,
   path: '/',
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
+  maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
 @ApiTags('Auth')
@@ -157,5 +159,39 @@ export class AuthController {
   })
   async getSessions(@Req() req: RequestWithUser) {
     return await this.authService.getActiveSessions(req.user.id);
+  }
+
+  // Google OAuth
+
+  @Get('google')
+  @UseGuards(GoogleAuthGuard)
+  @ApiOperation({
+    summary:
+      'Initiate Google OAuth2 login — redirects browser to Google consent screen',
+  })
+  @ApiResponse({ status: 302, description: 'Redirect to Google' })
+  googleAuth() {}
+
+  @Get('google/callback')
+  @UseGuards(GoogleAuthGuard)
+  @ApiOperation({ summary: 'Google OAuth2 callback (handled by Passport)' })
+  @ApiResponse({ status: 302, description: 'Redirect to frontend with token' })
+  async googleCallback(
+    @Req() req: Request & { user: User },
+    @Res() res: Response,
+  ) {
+    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:5173';
+    try {
+      const { accessToken, rawRefreshToken } = await this.authService.login(
+        req.user,
+        req,
+      );
+
+      res.cookie(REFRESH_COOKIE, rawRefreshToken, COOKIE_OPTIONS);
+
+      res.redirect(`${frontendUrl}/auth/callback#token=${accessToken}`);
+    } catch {
+      res.redirect(`${frontendUrl}/auth/error?reason=oauth_failed`);
+    }
   }
 }

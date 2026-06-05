@@ -25,7 +25,10 @@ export class User extends BaseEntity {
   })
   passwordHash: string | null;
 
-  @Column({ nullable: true })
+  @Column({
+    type: 'varchar',
+    nullable: true,
+  })
   name?: string | null;
 
   @Column({ name: 'is_email_verified', default: false })

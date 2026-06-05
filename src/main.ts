@@ -26,7 +26,7 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter());
 
   app.enableCors({
-    origin: ['http://localhost:5173', 'https://your-frontend-domain.com'],
+    origin: ['http://localhost:5173', 'https://venue-flow-fe-u7po.vercel.app'],
     credentials: true,
   });
 

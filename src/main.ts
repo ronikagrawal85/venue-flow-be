@@ -25,7 +25,10 @@ async function bootstrap() {
 
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  app.enableCors();
+  app.enableCors({
+    origin: ['http://localhost:5173', 'https://your-frontend-domain.com'],
+    credentials: true,
+  });
 
   // ── Swagger ──────────────────────────────────────────────────────────────────
   const config = new DocumentBuilder()

@@ -2,11 +2,12 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventSeat } from '../events/entities/event-seat.entity';
 import { Event } from '../events/entities/event.entity';
+import { SeatsModule } from '../seats/seats.module';
+import { BookingExpiryService } from './booking-expiry/booking-expiry.service';
 import { BookingsController } from './bookings.controller';
 import { BookingsService } from './bookings.service';
 import { BookingItem } from './entities/booking-item.entity';
 import { Booking } from './entities/booking.entity';
-import { BookingExpiryService } from './booking-expiry/booking-expiry.service';
 
 @Module({
   imports: [
@@ -16,9 +17,10 @@ import { BookingExpiryService } from './booking-expiry/booking-expiry.service';
       EventSeat, // Needed to update seat status inside service transactions
       Event, // Needed to validate event existence and status
     ]),
+    SeatsModule, // Provides SeatsGateway for real-time seat-status broadcasting
   ],
   controllers: [BookingsController],
   providers: [BookingsService, BookingExpiryService],
-  exports: [BookingsService], // Exported for potential use by a scheduler module
+  exports: [BookingsService],
 })
 export class BookingsModule {}

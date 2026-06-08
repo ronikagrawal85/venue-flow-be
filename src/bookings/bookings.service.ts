@@ -14,6 +14,7 @@ import { EventSeatStatus } from '../events/entities/enums/event-seat-status.enum
 import { EventStatus } from '../events/entities/enums/event-status.enum';
 import { EventSeat } from '../events/entities/event-seat.entity';
 import { Event } from '../events/entities/event.entity';
+import { SeatsGateway } from '../seats/seats.gateway';
 import { UserRole } from '../users/entities/user.entity';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
@@ -41,6 +42,8 @@ export class BookingsService {
     private readonly eventRepository: Repository<Event>,
 
     private readonly dataSource: DataSource,
+
+    private readonly seatsGateway: SeatsGateway,
   ) {}
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -140,6 +143,15 @@ export class BookingsService {
       `Booking ${booking.id} created (PENDING) for user ${userId} — ${dto.eventSeatIds.length} seat(s) locked`,
     );
 
+    // ── Real-time: notify all event viewers that these seats are now LOCKED ──
+    this.seatsGateway.broadcastSeatUpdate({
+      eventId: dto.eventId,
+      seats: dto.eventSeatIds.map((id) => ({
+        id,
+        status: EventSeatStatus.LOCKED,
+      })),
+    });
+
     return {
       message: 'Booking created successfully — awaiting confirmation',
       data: await this.findBookingWithDetails(booking.id),
@@ -161,12 +173,13 @@ export class BookingsService {
       );
     }
 
+    const seatIds = booking.items.map((i) => i.eventSeatId);
+
     await this.dataSource.transaction(async (manager) => {
       await manager.update(Booking, booking.id, {
         status: BookingStatus.CONFIRMED,
       });
 
-      const seatIds = booking.items.map((i) => i.eventSeatId);
       if (seatIds.length > 0) {
         await manager.update(
           EventSeat,
@@ -177,6 +190,14 @@ export class BookingsService {
     });
 
     this.logger.log(`Booking ${bookingId} confirmed by user ${userId}`);
+
+    // ── Real-time: notify all event viewers that these seats are now BOOKED ──
+    if (seatIds.length > 0) {
+      this.seatsGateway.broadcastSeatUpdate({
+        eventId: booking.eventId,
+        seats: seatIds.map((id) => ({ id, status: EventSeatStatus.BOOKED })),
+      });
+    }
 
     return {
       message: 'Booking confirmed successfully',
@@ -206,6 +227,8 @@ export class BookingsService {
       throw new BadRequestException(`Cannot cancel ${booking.status} booking`);
     }
 
+    const cancelledSeatIds = booking.items.map((i) => i.eventSeatId);
+
     await this.dataSource.transaction(async (manager) => {
       await manager.update(Booking, booking.id, {
         status: BookingStatus.CANCELLED,
@@ -214,11 +237,10 @@ export class BookingsService {
       });
 
       // Release seats regardless of whether they were LOCKED or BOOKED.
-      const seatIds = booking.items.map((i) => i.eventSeatId);
-      if (seatIds.length > 0) {
+      if (cancelledSeatIds.length > 0) {
         await manager.update(
           EventSeat,
-          { id: In(seatIds) },
+          { id: In(cancelledSeatIds) },
           { status: EventSeatStatus.AVAILABLE },
         );
       }
@@ -227,6 +249,17 @@ export class BookingsService {
     this.logger.log(
       `Booking ${bookingId} cancelled by user ${userId} (role: ${userRole}). Reason: ${dto.reason ?? 'N/A'}`,
     );
+
+    // ── Real-time: notify all event viewers that these seats are AVAILABLE again ──
+    if (cancelledSeatIds.length > 0) {
+      this.seatsGateway.broadcastSeatUpdate({
+        eventId: booking.eventId,
+        seats: cancelledSeatIds.map((id) => ({
+          id,
+          status: EventSeatStatus.AVAILABLE,
+        })),
+      });
+    }
 
     return {
       message: 'Booking cancelled successfully',

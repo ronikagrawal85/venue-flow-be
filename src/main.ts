@@ -1,5 +1,6 @@
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
@@ -7,6 +8,9 @@ import { AllExceptionsFilter } from './common/filters/allexceptions.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // ── WebSocket (Socket.IO) adapter ─────────────────────────────────────────
+  app.useWebSocketAdapter(new IoAdapter(app));
 
   app.use(cookieParser());
 

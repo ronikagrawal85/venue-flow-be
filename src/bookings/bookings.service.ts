@@ -187,13 +187,19 @@ export class BookingsService {
         !Array.isArray(result) ||
         result.length === 0 ||
         typeof result[0] !== 'object' ||
-        result[0] === null ||
-        typeof (result[0] as { seq?: unknown }).seq !== 'number'
+        result[0] === null
       ) {
         throw new Error('Failed to generate ticket sequence');
       }
 
-      const seq = String((result[0] as { seq: number }).seq).padStart(6, '0');
+      const row = result[0] as { seq?: string };
+
+      if (!row.seq) {
+        throw new Error('Failed to generate ticket sequence');
+      }
+
+      const seq = row.seq.padStart(6, '0');
+
       const year = new Date().getFullYear();
       const ticketNumber = `VF-${year}-${seq}`;
       const qrPayload = `booking:${booking.id}`;

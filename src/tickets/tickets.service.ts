@@ -137,10 +137,10 @@ export class TicketsService {
 
     // Launch Puppeteer, render HTML, export PDF buffer — never touches disk
     const browser = await puppeteer.launch({
+      executablePath: '/usr/bin/chromium',
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
-
     try {
       const page = await browser.newPage();
       await page.setContent(html, { waitUntil: 'load' });

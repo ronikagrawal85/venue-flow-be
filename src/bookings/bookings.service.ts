@@ -23,6 +23,7 @@ import { ListMyBookingsQueryDto } from './dto/list-my-bookings-query.dto';
 import { BookingItem } from './entities/booking-item.entity';
 import { Booking } from './entities/booking.entity';
 import { BookingStatus } from './entities/enums/booking-status.enum';
+import { TicketStatus } from './entities/enums/ticket-status.enum';
 
 @Injectable()
 export class BookingsService {
@@ -176,8 +177,33 @@ export class BookingsService {
     const seatIds = booking.items.map((i) => i.eventSeatId);
 
     await this.dataSource.transaction(async (manager) => {
+      // Generate a unique, sequential ticket number via Postgres sequence.
+      // This is the only concurrent-safe approach — no application-level races.
+      const result: unknown = await manager.query(
+        `SELECT nextval('ticket_number_seq') AS seq`,
+      );
+
+      if (
+        !Array.isArray(result) ||
+        result.length === 0 ||
+        typeof result[0] !== 'object' ||
+        result[0] === null ||
+        typeof (result[0] as { seq?: unknown }).seq !== 'number'
+      ) {
+        throw new Error('Failed to generate ticket sequence');
+      }
+
+      const seq = String((result[0] as { seq: number }).seq).padStart(6, '0');
+      const year = new Date().getFullYear();
+      const ticketNumber = `VF-${year}-${seq}`;
+      const qrPayload = `booking:${booking.id}`;
+
       await manager.update(Booking, booking.id, {
         status: BookingStatus.CONFIRMED,
+        ticketNumber,
+        qrPayload,
+        ticketStatus: TicketStatus.ACTIVE,
+        issuedAt: new Date(),
       });
 
       if (seatIds.length > 0) {

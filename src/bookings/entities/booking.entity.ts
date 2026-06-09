@@ -12,6 +12,7 @@ import { Event } from '../../events/entities/event.entity';
 import { User } from '../../users/entities/user.entity';
 import { BookingItem } from './booking-item.entity';
 import { BookingStatus } from './enums/booking-status.enum';
+import { TicketStatus } from './enums/ticket-status.enum';
 
 @Entity({ name: 'bookings' })
 @Index(['userId', 'status'])
@@ -73,4 +74,48 @@ export class Booking extends BaseEntity {
     nullable: true,
   })
   cancellationReason?: string;
+
+  // ── Ticket fields (populated on PENDING → CONFIRMED transition) ────────────
+
+  @Index({ unique: true })
+  @Column({
+    name: 'ticket_number',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+    unique: true,
+  })
+  ticketNumber?: string;
+
+  @Index({ unique: true })
+  @Column({
+    name: 'qr_payload',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+    unique: true,
+  })
+  qrPayload?: string;
+
+  @Column({
+    name: 'ticket_status',
+    type: 'enum',
+    enum: TicketStatus,
+    nullable: true,
+  })
+  ticketStatus?: TicketStatus;
+
+  @Column({
+    name: 'issued_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  issuedAt?: Date;
+
+  @Column({
+    name: 'checked_in_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  checkedInAt?: Date;
 }

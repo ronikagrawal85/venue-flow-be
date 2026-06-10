@@ -51,4 +51,10 @@ export class User extends BaseEntity {
   @Index({ unique: true, sparse: true })
   @Column({ name: 'google_id', nullable: true, unique: true })
   googleId?: string;
+
+  @Column({ name: 'avatar_url', type: 'text', nullable: true })
+  avatarUrl?: string | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  phone?: string | null;
 }

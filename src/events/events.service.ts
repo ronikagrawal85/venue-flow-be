@@ -10,6 +10,8 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { AuditAction } from '../audit-logs/entities/audit-log.entity';
 import { buildPaginatedResponse } from '../common/dto/paginated-response.helper';
 import { SortOrder } from '../common/dto/pagination-query.dto';
 import { CACHE_KEYS, CACHE_TTL } from '../common/constants/cache.constants';
@@ -40,6 +42,7 @@ export class EventsService {
     private readonly dataSource: DataSource,
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
   // ─── Ownership helper ──────────────────────────────────────────────────────
@@ -102,6 +105,16 @@ export class EventsService {
       data: savedEvent,
       generatedSeatsCount: seats.length,
     };
+  }
+
+  async logEventCreation(eventId: string, userId: string, title: string) {
+    await this.auditLogsService.log({
+      action: AuditAction.CREATE,
+      entityType: 'Event',
+      entityId: eventId,
+      userId,
+      changes: { title },
+    });
   }
 
   // ─── List ──────────────────────────────────────────────────────────────────
@@ -263,6 +276,14 @@ export class EventsService {
 
     await this.cacheManager.del(CACHE_KEYS.EVENT_DETAIL(id));
 
+    await this.auditLogsService.log({
+      action: AuditAction.UPDATE,
+      entityType: 'Event',
+      entityId: id,
+      userId: user.id,
+      changes: dto as Record<string, unknown>,
+    });
+
     return {
       message: 'Event updated successfully',
       data: updatedEvent,
@@ -297,6 +318,14 @@ export class EventsService {
 
     await this.cacheManager.del(CACHE_KEYS.EVENT_DETAIL(id));
 
+    await this.auditLogsService.log({
+      action: AuditAction.STATUS_CHANGE,
+      entityType: 'Event',
+      entityId: id,
+      userId: user.id,
+      changes: { from: 'DRAFT', to: 'PUBLISHED' },
+    });
+
     return {
       message: 'Event published successfully',
       data: published,
@@ -317,6 +346,14 @@ export class EventsService {
     await this.eventRepository.delete(id);
 
     await this.cacheManager.del(CACHE_KEYS.EVENT_DETAIL(id));
+
+    await this.auditLogsService.log({
+      action: AuditAction.DELETE,
+      entityType: 'Event',
+      entityId: id,
+      userId: user.id,
+      changes: { title: event.title },
+    });
 
     return {
       message: 'Event deleted successfully',

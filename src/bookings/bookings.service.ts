@@ -8,6 +8,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { AuditAction } from '../audit-logs/entities/audit-log.entity';
 import { buildPaginatedResponse } from '../common/dto/paginated-response.helper';
 import { SortOrder } from '../common/dto/pagination-query.dto';
 import { EventSeatStatus } from '../events/entities/enums/event-seat-status.enum';
@@ -24,6 +26,15 @@ import { BookingItem } from './entities/booking-item.entity';
 import { Booking } from './entities/booking.entity';
 import { BookingStatus } from './entities/enums/booking-status.enum';
 import { TicketStatus } from './entities/enums/ticket-status.enum';
+
+type BookingStatsRaw = {
+  totalBookings: string;
+  confirmedCount: string;
+  cancelledCount: string;
+  pendingCount: string;
+  expiredCount: string;
+  totalSpent: string;
+};
 
 @Injectable()
 export class BookingsService {
@@ -45,6 +56,8 @@ export class BookingsService {
     private readonly dataSource: DataSource,
 
     private readonly seatsGateway: SeatsGateway,
+
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -144,6 +157,19 @@ export class BookingsService {
       `Booking ${booking.id} created (PENDING) for user ${userId} — ${dto.eventSeatIds.length} seat(s) locked`,
     );
 
+    // ── Audit log ────────────────────────────────────────────────────────────
+    await this.auditLogsService.log({
+      action: AuditAction.CREATE,
+      entityType: 'Booking',
+      entityId: booking.id,
+      userId,
+      changes: {
+        eventId: dto.eventId,
+        seatCount: dto.eventSeatIds.length,
+        status: 'PENDING',
+      },
+    });
+
     // ── Real-time: notify all event viewers that these seats are now LOCKED ──
     this.seatsGateway.broadcastSeatUpdate({
       eventId: dto.eventId,
@@ -223,6 +249,15 @@ export class BookingsService {
 
     this.logger.log(`Booking ${bookingId} confirmed by user ${userId}`);
 
+    // ── Audit log ────────────────────────────────────────────────────────────
+    await this.auditLogsService.log({
+      action: AuditAction.STATUS_CHANGE,
+      entityType: 'Booking',
+      entityId: bookingId,
+      userId,
+      changes: { from: 'PENDING', to: 'CONFIRMED' },
+    });
+
     // ── Real-time: notify all event viewers that these seats are now BOOKED ──
     if (seatIds.length > 0) {
       this.seatsGateway.broadcastSeatUpdate({
@@ -281,6 +316,19 @@ export class BookingsService {
     this.logger.log(
       `Booking ${bookingId} cancelled by user ${userId} (role: ${userRole}). Reason: ${dto.reason ?? 'N/A'}`,
     );
+
+    // ── Audit log ────────────────────────────────────────────────────────────
+    await this.auditLogsService.log({
+      action: AuditAction.STATUS_CHANGE,
+      entityType: 'Booking',
+      entityId: bookingId,
+      userId,
+      changes: {
+        from: booking.status,
+        to: 'CANCELLED',
+        reason: dto.reason ?? null,
+      },
+    });
 
     // ── Real-time: notify all event viewers that these seats are AVAILABLE again ──
     if (cancelledSeatIds.length > 0) {
@@ -396,6 +444,64 @@ export class BookingsService {
       page,
       limit,
     );
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // BOOKING STATS
+  // ────────────────────────────────────────────────────────────────────────────
+
+  async getMyBookingStats(userId: string) {
+    const stats = await this.bookingRepository
+      .createQueryBuilder('booking')
+      .select('COUNT(*)', 'totalBookings')
+      .addSelect(
+        `COUNT(*) FILTER (WHERE booking.status = 'CONFIRMED')`,
+        'confirmedCount',
+      )
+      .addSelect(
+        `COUNT(*) FILTER (WHERE booking.status = 'CANCELLED')`,
+        'cancelledCount',
+      )
+      .addSelect(
+        `COUNT(*) FILTER (WHERE booking.status = 'PENDING')`,
+        'pendingCount',
+      )
+      .addSelect(
+        `COUNT(*) FILTER (WHERE booking.status = 'EXPIRED')`,
+        'expiredCount',
+      )
+      .addSelect(
+        `COALESCE(SUM(booking.total_amount) FILTER (WHERE booking.status = 'CONFIRMED'), 0)`,
+        'totalSpent',
+      )
+      .where('booking.userId = :userId', { userId })
+      .getRawOne<BookingStatsRaw>();
+
+    // Count upcoming events (confirmed bookings for future events)
+    const upcomingCount = await this.bookingRepository
+      .createQueryBuilder('booking')
+      .leftJoin('booking.event', 'event')
+      .where('booking.userId = :userId', { userId })
+      .andWhere('booking.status = :status', { status: BookingStatus.CONFIRMED })
+      .andWhere('event.start_time > NOW()')
+      .getCount();
+
+    if (!stats) {
+      throw new NotFoundException('Booking stats not found');
+    }
+
+    return {
+      message: 'Booking stats retrieved successfully',
+      data: {
+        totalBookings: parseInt(stats.totalBookings, 10),
+        confirmedCount: parseInt(stats.confirmedCount, 10),
+        cancelledCount: parseInt(stats.cancelledCount, 10),
+        pendingCount: parseInt(stats.pendingCount, 10),
+        expiredCount: parseInt(stats.expiredCount, 10),
+        totalSpent: parseFloat(stats.totalSpent),
+        upcomingEvents: upcomingCount,
+      },
+    };
   }
 
   // ────────────────────────────────────────────────────────────────────────────

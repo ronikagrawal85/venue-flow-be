@@ -4,4 +4,5 @@ export type ErrorResponse = {
   errors?: string[];
   path?: string;
   timestamp: string;
+  correlationId?: string;
 };

@@ -40,6 +40,18 @@ export class BookingsController {
 
   // ── Customer routes ────────────────────────────────────────────────────────
 
+  @Get('me/stats')
+  @ApiOperation({
+    summary: 'Get booking statistics for the authenticated user',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Booking stats (total, confirmed, cancelled, spent, etc.)',
+  })
+  async getMyBookingStats(@CurrentUser() user: JwtUser) {
+    return this.bookingsService.getMyBookingStats(user.id);
+  }
+
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({

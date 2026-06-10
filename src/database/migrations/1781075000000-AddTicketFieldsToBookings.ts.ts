@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddTicketFieldsToBookings1749456001000 implements MigrationInterface {
-  name = 'AddTicketFieldsToBookings1749456001000';
+export class AddTicketFieldsToBookings1781075000000 implements MigrationInterface {
+  name = 'AddTicketFieldsToBookings1781075000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. Postgres sequence for generating sequential ticket numbers

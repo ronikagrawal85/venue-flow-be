@@ -1,16 +1,18 @@
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import {
-  Injectable,
-  NotFoundException,
   BadRequestException,
   Inject,
+  Injectable,
+  NotFoundException,
 } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Cache } from 'cache-manager';
 import { DataSource, In, Repository } from 'typeorm';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { AuditAction } from '../audit-logs/entities/audit-log.entity';
+import { CACHE_KEYS, CACHE_TTL } from '../common/constants/cache.constants';
 import { buildPaginatedResponse } from '../common/dto/paginated-response.helper';
 import { SortOrder } from '../common/dto/pagination-query.dto';
-import { CACHE_KEYS, CACHE_TTL } from '../common/constants/cache.constants';
 
 import { Seat } from '../seats/entities/seat.entity';
 
@@ -41,6 +43,8 @@ export class VenueService {
 
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
+
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
   async createVenue(dto: CreateVenueDto) {
@@ -50,6 +54,13 @@ export class VenueService {
 
     // Clear cache to invalidate list caches
     await this.cacheManager.clear?.();
+
+    void this.auditLogsService.log({
+      action: AuditAction.CREATE,
+      entityType: 'Venue',
+      entityId: savedVenue.id,
+      changes: { name: dto.name, city: dto.city, address: dto.address },
+    });
 
     return {
       message: 'Venue created successfully',
@@ -203,6 +214,13 @@ export class VenueService {
 
     await this.cacheManager.del(CACHE_KEYS.VENUE_DETAIL(id));
 
+    void this.auditLogsService.log({
+      action: AuditAction.UPDATE,
+      entityType: 'Venue',
+      entityId: id,
+      changes: dto as Record<string, unknown>,
+    });
+
     return {
       message: 'Venue updated successfully',
       data: savedVenue,
@@ -217,6 +235,13 @@ export class VenueService {
     await this.cacheManager.del(CACHE_KEYS.VENUE_DETAIL(id));
     // Clear cache to invalidate list caches
     await this.cacheManager.clear?.();
+
+    void this.auditLogsService.log({
+      action: AuditAction.DELETE,
+      entityType: 'Venue',
+      entityId: id,
+      changes: { name: venue.name },
+    });
 
     return {
       message: 'Venue deleted successfully',

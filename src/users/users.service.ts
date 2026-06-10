@@ -1,8 +1,14 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { RegisterDto } from '../auth/dto/register.dto';
 import { Repository } from 'typeorm';
+import { RegisterDto } from '../auth/dto/register.dto';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { AuthProvider, User } from './entities/user.entity';
 
 export interface GoogleProfile {
@@ -17,6 +23,8 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   async create(registerDto: RegisterDto): Promise<User> {
@@ -90,5 +98,55 @@ export class UsersService {
 
   async updateLastLogin(userId: string): Promise<void> {
     await this.userRepository.update(userId, { lastLoginAt: new Date() });
+  }
+
+  // ── Profile management ──────────────────────────────────────────────────────
+
+  async getProfile(userId: string): Promise<Omit<User, 'passwordHash'>> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
+  }
+
+  async updateProfile(
+    userId: string,
+    dto: UpdateProfileDto,
+  ): Promise<Omit<User, 'passwordHash'>> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (dto.name !== undefined) user.name = dto.name;
+    if (dto.phone !== undefined) user.phone = dto.phone;
+
+    return await this.userRepository.save(user);
+  }
+
+  async updateAvatar(
+    userId: string,
+    file: Express.Multer.File,
+  ): Promise<Omit<User, 'passwordHash'>> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const { url } = await this.cloudinaryService.uploadImage(file);
+
+    user.avatarUrl = url;
+    return await this.userRepository.save(user);
   }
 }

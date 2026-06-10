@@ -5,9 +5,16 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/allexceptions.filter';
+import { AppLoggerService } from './common/logger/app-logger.service';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const logger = new AppLoggerService();
+
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+  });
+
+  app.useLogger(logger);
 
   // ── WebSocket (Socket.IO) adapter ─────────────────────────────────────────
   app.useWebSocketAdapter(new IoAdapter(app));
@@ -47,9 +54,12 @@ async function bootstrap() {
       'access-token',
     )
     .addTag('Auth', 'Register & login')
+    .addTag('Users', 'User profile management')
     .addTag('Venues', 'Venue, section and seat management')
     .addTag('Events', 'Event lifecycle management')
     .addTag('Bookings', 'Seat reservation and booking management')
+    .addTag('Audit Logs', 'System-wide audit trail')
+    .addTag('Health', 'Application health checks')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
@@ -64,10 +74,14 @@ async function bootstrap() {
   const port = process.env.PORT ?? 3000;
   await app.listen(port ?? 3000);
 
-  console.log(
-    `\n🚀 VenueFlow API running at http://localhost:${port ?? 3000}/v1`,
+  logger.log(
+    `🚀 VenueFlow API running at http://localhost:${port ?? 3000}/v1`,
+    'Bootstrap',
   );
-  console.log(`📄 Swagger docs at  http://localhost:${port ?? 3000}/docs\n`);
+  logger.log(
+    `📄 Swagger docs at  http://localhost:${port ?? 3000}/docs`,
+    'Bootstrap',
+  );
 }
 
 void bootstrap();

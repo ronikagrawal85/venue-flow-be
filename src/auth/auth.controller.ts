@@ -125,7 +125,7 @@ export class AuthController {
     @Req() req: RequestWithUser,
     @Res({ passthrough: true }) res: Response,
   ) {
-    await this.authService.logout(req.user.sessionId);
+    await this.authService.logout(req.user.sessionId, req.user.id);
     res.clearCookie(REFRESH_COOKIE, { path: '/' });
     return { message: 'Logged out successfully' };
   }

@@ -10,6 +10,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { Request } from 'express';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { AuditAction } from '../audit-logs/entities/audit-log.entity';
 import { UsersService } from '../users/users.service';
 import { AuthProvider, User, UserRole } from '../users/entities/user.entity';
 import { Repository } from 'typeorm';
@@ -32,12 +34,23 @@ export class AuthService {
     private readonly sessionRepo: Repository<Session>,
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepo: Repository<RefreshToken>,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
   // ─── Public API ──────────────────────────────────────────────────────────────
 
   async register(registerDto: RegisterDto) {
-    return await this.usersService.create(registerDto);
+    const user = await this.usersService.create(registerDto);
+
+    await this.auditLogsService.log({
+      action: AuditAction.REGISTER,
+      entityType: 'User',
+      entityId: user.id,
+      userId: user.id,
+      userEmail: user.email,
+    });
+
+    return user;
   }
 
   async validateUser(email: string, pass: string): Promise<User | null> {
@@ -66,7 +79,13 @@ export class AuthService {
   ): Promise<{
     accessToken: string;
     rawRefreshToken: string;
-    user: { id: string; email: string; role: UserRole; name?: string };
+    user: {
+      id: string;
+      email: string;
+      role: UserRole;
+      name?: string;
+      avatarUrl?: string;
+    };
   }> {
     await this.usersService.updateLastLogin(user.id);
 
@@ -83,6 +102,16 @@ export class AuthService {
       user,
     );
 
+    await this.auditLogsService.log({
+      action: AuditAction.LOGIN,
+      entityType: 'User',
+      entityId: user.id,
+      userId: user.id,
+      userEmail: user.email,
+      ipAddress: req.ip ?? undefined,
+      userAgent: req.headers['user-agent'] ?? undefined,
+    });
+
     return {
       accessToken,
       rawRefreshToken: rawToken,
@@ -91,6 +120,7 @@ export class AuthService {
         email: user.email,
         role: user.role,
         name: user.name ?? '',
+        avatarUrl: user.avatarUrl ?? undefined,
       },
     };
   }
@@ -157,8 +187,17 @@ export class AuthService {
     return { accessToken, rawRefreshToken: newRaw };
   }
 
-  async logout(sessionId: string): Promise<void> {
+  async logout(sessionId: string, userId?: string): Promise<void> {
     await this.killSession(sessionId);
+
+    if (userId) {
+      await this.auditLogsService.log({
+        action: AuditAction.LOGOUT,
+        entityType: 'User',
+        entityId: userId,
+        userId,
+      });
+    }
   }
 
   async logoutAll(userId: string): Promise<void> {

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { EventSeat } from '../events/entities/event-seat.entity';
 import { Event } from '../events/entities/event.entity';
 import { SeatsModule } from '../seats/seats.module';
@@ -18,6 +19,7 @@ import { Booking } from './entities/booking.entity';
       Event, // Needed to validate event existence and status
     ]),
     SeatsModule, // Provides SeatsGateway for real-time seat-status broadcasting
+    AuditLogsModule,
   ],
   controllers: [BookingsController],
   providers: [BookingsService, BookingExpiryService],

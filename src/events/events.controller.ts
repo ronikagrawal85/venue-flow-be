@@ -53,7 +53,16 @@ export class EventsController {
     @CurrentUser() user: JwtUser,
     @Body() createEventDto: CreateEventDto,
   ) {
-    return this.eventsService.createEvent(createEventDto, user.id);
+    const result = await this.eventsService.createEvent(
+      createEventDto,
+      user.id,
+    );
+    await this.eventsService.logEventCreation(
+      result.data.id,
+      user.id,
+      createEventDto.title,
+    );
+    return result;
   }
 
   @Patch(':id/publish')

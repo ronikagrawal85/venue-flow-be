@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import { RedisClientType } from 'redis';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
@@ -43,7 +44,22 @@ export class EventsService {
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
     private readonly auditLogsService: AuditLogsService,
-  ) {}
+    @Inject('REDIS_CLIENT')
+    private readonly redisClient: RedisClientType,
+  ) { }
+
+  // ─── Cache Helper ─────────────────────────────────────────────────────────
+
+  private async invalidateEventListCache() {
+    const keys = await this.redisClient.keys('keyv:events_list_*');
+    if (keys.length > 0) {
+      await this.redisClient.del(keys);
+    }
+    const plainKeys = await this.redisClient.keys('events_list_*');
+    if (plainKeys.length > 0) {
+      await this.redisClient.del(plainKeys);
+    }
+  }
 
   // ─── Ownership helper ──────────────────────────────────────────────────────
 
@@ -99,6 +115,8 @@ export class EventsService {
       await manager.save(eventSeats);
       return saved;
     });
+
+    await this.invalidateEventListCache();
 
     return {
       message: 'Event created successfully',
@@ -284,6 +302,8 @@ export class EventsService {
       changes: dto as Record<string, unknown>,
     });
 
+    await this.invalidateEventListCache();
+
     return {
       message: 'Event updated successfully',
       data: updatedEvent,
@@ -326,6 +346,8 @@ export class EventsService {
       changes: { from: 'DRAFT', to: 'PUBLISHED' },
     });
 
+    await this.invalidateEventListCache();
+
     return {
       message: 'Event published successfully',
       data: published,
@@ -354,6 +376,8 @@ export class EventsService {
       userId: user.id,
       changes: { title: event.title },
     });
+
+    await this.invalidateEventListCache();
 
     return {
       message: 'Event deleted successfully',

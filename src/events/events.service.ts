@@ -20,6 +20,7 @@ import { Seat } from '../seats/entities/seat.entity';
 import { JwtUser } from '../auth/interfaces/request-with-user.interface';
 import { UserRole } from '../users/entities/user.entity';
 import { Venue } from '../venue/entities/venue.entity';
+import { VenueSection } from '../venue/entities/venue-section.entity';
 import { CreateEventDto } from './dto/create-event.dto';
 import { ListEventSeatsQueryDto } from './dto/list-event-seats-query.dto';
 import { ListEventsQueryDto } from './dto/list-events-query.dto';
@@ -40,6 +41,8 @@ export class EventsService {
     private readonly venueRepository: Repository<Venue>,
     @InjectRepository(Seat)
     private readonly seatRepository: Repository<Seat>,
+    @InjectRepository(VenueSection)
+    private readonly venueSectionRepository: Repository<VenueSection>,
     private readonly dataSource: DataSource,
     @Inject(CACHE_MANAGER)
     private readonly cacheManager: Cache,
@@ -92,6 +95,24 @@ export class EventsService {
       );
     }
 
+    // ── Validate section price overrides belong to this venue ──────────────
+    if (dto.sectionPricing && dto.sectionPricing.length > 0) {
+      const suppliedSectionIds = dto.sectionPricing.map((sp) => sp.sectionId);
+      const validSections = await this.venueSectionRepository.findBy(
+        suppliedSectionIds.map((id) => ({ id, venueId: dto.venueId })),
+      );
+      if (validSections.length !== suppliedSectionIds.length) {
+        throw new BadRequestException(
+          'One or more sectionIds in sectionPricing do not belong to the selected venue',
+        );
+      }
+    }
+
+    // ── Build section → price lookup map ──────────────────────────────────
+    const sectionPriceMap = new Map<string, number>(
+      (dto.sectionPricing ?? []).map((sp) => [sp.sectionId, sp.price]),
+    );
+
     const event = this.eventRepository.create({
       title: dto.title,
       description: dto.description,
@@ -103,14 +124,19 @@ export class EventsService {
     const savedEvent = await this.dataSource.transaction(async (manager) => {
       const saved = await manager.save(event);
 
-      const eventSeats = seats.map((seat) =>
-        this.eventSeatRepository.create({
+      const eventSeats = seats.map((seat) => {
+        // Resolve the price: section override → defaultPrice fallback
+        const sectionPrice = sectionPriceMap.get(seat.sectionId);
+        const resolvedPrice =
+          sectionPrice !== undefined ? sectionPrice : dto.defaultPrice;
+
+        return this.eventSeatRepository.create({
           eventId: saved.id,
           seatId: seat.id,
-          price: dto.defaultPrice.toString(),
+          price: resolvedPrice.toString(),
           status: EventSeatStatus.AVAILABLE,
-        }),
-      );
+        });
+      });
 
       await manager.save(eventSeats);
       return saved;
@@ -122,6 +148,7 @@ export class EventsService {
       message: 'Event created successfully',
       data: savedEvent,
       generatedSeatsCount: seats.length,
+      sectionPricingApplied: sectionPriceMap.size,
     };
   }
 
